@@ -23,6 +23,38 @@ From the RNA-Seq files, you only need the "Name" from one file and the "TPM" col
 
 #you only need the 
 
+library(tidyverse)
+
+H3K27M_names <- list.files("RNA_Seq_processed/H3K27M")
+WT_names <- list.files("RNA_Seq_processed/WT")
+
+H3K27M_names <- gsub(pattern = "\\.sf", H3K27M_names, replacement = "_H3")
+WT_names <- gsub(pattern = "\\.sf", WT_names, replacement = "_WT")
+cnames <- c("gene_id", H3K27M_names, WT_names)
+
+H3K27M_filepath <- list.files("RNA_Seq_processed/H3K27M", full.names = TRUE)
+WT_filepath <- list.files("RNA_Seq_processed/WT", full.names = TRUE)
+RNA_seq_file <- c(H3K27M_filepath, WT_filepath)
+
+import_clean <- function(x){
+  if(x == "RNA_Seq_processed/H3K27M/BT245_C19.sf") {
+    read_tsv(x) %>%
+      select(Name, TPM) %>%
+      rename(gene_id = Name)
+  } else {
+    read_tsv(x) %>%
+    select(TPM)
+}
+  }
+  
+
+H3K27M <- sapply(RNA_seq_file, import_clean)
+
+GBM.transcripts <- bind_cols(H3K27M)
+
+colnames(GBM.transcripts) <- cnames
+
+
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
@@ -61,7 +93,7 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "5S_rRNA")
 
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
@@ -69,6 +101,9 @@ GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_intere
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
 #print out the t-test results
+
+
+
 ```
 
 
