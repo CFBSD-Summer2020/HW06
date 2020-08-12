@@ -1,0 +1,92 @@
+---
+title: "HW06"
+output: github_document
+---
+
+In cancer, mutations arise that promote growth or survival of cells. In glioblastoma multiforme and other high grade gliomas, a common mutation is a mutation of the 27th lysine (K) to a methionine (M) of the histone subunit H3, or in short H3K27M. 
+
+H3K27M is the most frequent oncohistone in brain cancers, but the biology is still not well understood. Your analysis is to look at the expression of several (27) genes to see if they are differentially expressed and plot 27 boxplots each gene. The data used in this analysis was obtained [from this publication](https://pubmed.ncbi.nlm.nih.gov/31085178/) 
+
+Steps: 
+
+  1. Read in the 45 processed RNA-Seq data found in "./RNA_Seq_processed"
+  2. Map gene.ids to gene.symbols (which I have for you)
+  3. For 27 genes of interest AND your favorite gene, perform a t-test to see if it is differentially expressed between the WT vs H3K27M samples
+  4. Create a graphing function and then create a boxplot that graphs expression between the two groups
+  
+  
+#### Code
+
+From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
+```{r load in data}
+#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+
+#you only need the 
+
+```
+
+Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
+
+```{r map gene.ids to gene.symbols using ensembldb}
+
+#install.packages("BiocManager")
+#BiocManager::install("ensembldb")
+#BiocManager::install("EnsDb.Hsapiens.v75")
+library(ensembldb)
+library(EnsDb.Hsapiens.v75)
+
+ens.GBM.transcripts <- GBM.transcripts %>% 
+  mutate(gene_id = gsub(pattern = "\\..*", "", .$gene_id))
+
+map <- ensembldb::select(EnsDb.Hsapiens.v75, keys = ens.GBM.transcripts$gene_id,
+                         keytype = "TXID", columns = c("SYMBOL", "TXID"))
+
+ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")) %>% 
+  dplyr::select(-1) %>% 
+  dplyr::select(gene_symbol = SYMBOL, everything())
+
+ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
+  #these are removed instead of averaged because they simply do not correlate particularly well. 
+ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
+
+```
+
+
+
+Do the t-test and make a table of the t-test results!
+
+```{r t.test for difference between a bunch of genes}
+#run this code to unload the libraries from before, it might be helpful because the select() function from dplyr might be hidden otherwise
+detach(package:EnsDb.Hsapiens.v75, unload = T)
+detach(package:ensembldb, unload = T)
+
+#add in your own gene of interest!!! 
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+
+
+GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
+
+#Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
+
+#print out the t-test results
+```
+
+
+
+Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
+
+```{r create a graphing function}
+#to work in the tidyverse, it will be easier to make tidy the dataframe first
+
+
+
+#create a graphing function
+
+#then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+```
+
+
+```{r reproducibility}
+sessionInfo()
+```
+
