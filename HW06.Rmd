@@ -33,8 +33,8 @@ library(tidyverse)
 H3K27M_names <- list.files("RNA_Seq_processed/H3K27M")
 WT_names <- list.files("RNA_Seq_processed/WT")
 
-H3K27M_names <- gsub(pattern = "\\.sf", H3K27M_names, replacement = ".H3")
-WT_names <- gsub(pattern = "\\.sf", WT_names, replacement = ".WT")
+H3K27M_names <- gsub(pattern = "\\.sf", H3K27M_names, replacement = "/H3")
+WT_names <- gsub(pattern = "\\.sf", WT_names, replacement = "/WT")
 cnames <- c("gene_id", H3K27M_names, WT_names)
 
 H3K27M_filepath <- list.files("RNA_Seq_processed/H3K27M", full.names = TRUE)
@@ -109,13 +109,13 @@ GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_intere
 #print out the t-test results
 
 WT <- GBM.genes.of.interest %>%
-  dplyr::select(gene_symbol, ends_with(".WT")) %>%
+  dplyr::select(gene_symbol, ends_with("WT")) %>%
   gather(key = "file", value = "value", 2:23) %>%
   spread(key = gene_symbol, value = value)
 
 
 H3 <- GBM.genes.of.interest %>%
-  dplyr::select(gene_symbol, ends_with(".H3")) %>%
+  dplyr::select(gene_symbol, ends_with("H3")) %>%
   gather(key = "file", value = "value", 2:24) %>%
   spread(key = gene_symbol, value = value)
 
@@ -142,10 +142,38 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
 
+GBM.tidied <- GBM.genes.of.interest %>%
+  gather(key = "file", value = "value", 2:46) %>%
+  separate(file, sep = "/", into = c("file", "H3K27")) %>%
+  spread(key = gene_symbol, value = value)
+
+GBM.tidied$H3K27[GBM.tidied$H3K27 == "H3"] <- "H3K27_Mutated"
+
+theme_set(theme_bw())
+
 
 #create a graphing function
 
+graph_function <- function(gene = "name") {
+  ggplot(GBM.tidied, aes_string(x = "H3K27", y = gene, fill = "H3K27"))+
+  geom_boxplot() +
+  labs(y = "Expression_(TPM)",
+       title = paste(gene, "Expression in GBM models \nby H3K27 Mutated or WT Status")) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+}
+
+
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+
+gene_names <- colnames(GBM.tidied)
+gene_names <- gene_names[3:29]
+
+
+for(t in 1:length(gene_names)){
+  print(graph_function(gene = gene_names[t]))
+}
+
 ```
 
 
