@@ -3,6 +3,11 @@ title: "HW06"
 output: github_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
 In cancer, mutations arise that promote growth or survival of cells. In glioblastoma multiforme and other high grade gliomas, a common mutation is a mutation of the 27th lysine (K) to a methionine (M) of the histone subunit H3, or in short H3K27M. 
 
 H3K27M is the most frequent oncohistone in brain cancers, but the biology is still not well understood. Your analysis is to look at the expression of several (27) genes to see if they are differentially expressed and plot 27 boxplots each gene. The data used in this analysis was obtained [from this publication](https://pubmed.ncbi.nlm.nih.gov/31085178/) 
@@ -18,7 +23,7 @@ Steps:
 #### Code
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
-```{r load in data}
+```{r load in data, warning = FALSE, message=FALSE}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
 #you only need the 
@@ -28,8 +33,8 @@ library(tidyverse)
 H3K27M_names <- list.files("RNA_Seq_processed/H3K27M")
 WT_names <- list.files("RNA_Seq_processed/WT")
 
-H3K27M_names <- gsub(pattern = "\\.sf", H3K27M_names, replacement = "_H3")
-WT_names <- gsub(pattern = "\\.sf", WT_names, replacement = "_WT")
+H3K27M_names <- gsub(pattern = "\\.sf", H3K27M_names, replacement = ".H3")
+WT_names <- gsub(pattern = "\\.sf", WT_names, replacement = ".WT")
 cnames <- c("gene_id", H3K27M_names, WT_names)
 
 H3K27M_filepath <- list.files("RNA_Seq_processed/H3K27M", full.names = TRUE)
@@ -59,7 +64,7 @@ colnames(GBM.transcripts) <- cnames
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
-```{r map gene.ids to gene.symbols using ensembldb}
+```{r map gene.ids to gene.symbols using ensembldb, warning= FALSE, message=FALSE}
 
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
@@ -87,13 +92,14 @@ ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA
 
 Do the t-test and make a table of the t-test results!
 
-```{r t.test for difference between a bunch of genes}
+```{r t.test for difference between a bunch of genes, warning= FALSE, message=FALSE}
+
 #run this code to unload the libraries from before, it might be helpful because the select() function from dplyr might be hidden otherwise
 detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "5S_rRNA")
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "CICP27") #CICP27
 
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
@@ -102,7 +108,30 @@ GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_intere
 
 #print out the t-test results
 
+WT <- GBM.genes.of.interest %>%
+  dplyr::select(gene_symbol, ends_with(".WT")) %>%
+  gather(key = "file", value = "value", 2:23) %>%
+  spread(key = gene_symbol, value = value)
 
+
+H3 <- GBM.genes.of.interest %>%
+  dplyr::select(gene_symbol, ends_with(".H3")) %>%
+  gather(key = "file", value = "value", 2:24) %>%
+  spread(key = gene_symbol, value = value)
+
+a <- colnames(WT)
+
+tests <- list()
+tests_table <- matrix(nrow = 27, ncol = 2, data = NA)
+
+for(i in 2:ncol(H3)) {
+  tests[[a[i]]] <- t.test(H3[,i],WT[,i])
+  gene <- a[i]
+  p.value <- round(tests[[i-1]][[3]], digits = 6)
+  tests_table[i-1,] <- c(gene, p.value)
+}
+
+knitr::kable(tests_table, format = "markdown", col.names = c("Gene", "p-value"))
 
 ```
 
@@ -112,7 +141,6 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
-
 
 
 #create a graphing function
