@@ -19,11 +19,59 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
+library("readr")
+library("dplyr")
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+
+H3K27M_filepath_list <- list.files(path = "RNA_Seq_processed/H3K27M", full.names = TRUE)
+WT_filepath_list <- list.files(path = "RNA_Seq_processed/WT", full.names = TRUE) #list.files() simply creates a list containing the file names of all the files in a folder. With the full.names argument set to TRUE, the function outputs the path of the file instead of just the file name
+
+H3K27M_filename_list <- unlist(list.files(path = "RNA_Seq_processed/H3K27M"))
+WT_filename_list <- unlist(list.files(path = "RNA_Seq_processed/WT")) #and this creates a list of the file names without the path, and converts to a character vector using unlist()
+
+H3K27M_filename_list <- gsub(".sf", replacement = "", H3K27M_filename_list)
+WT_filename_list <- gsub(".sf", replacement = "", WT_filename_list) #updates these variables to filenames without extensions
+
+for(file in 1:length(H3K27M_filepath_list)) {
+  assign(x = paste("RNA_H3K", H3K27M_filename_list[[file]], sep = "_"),
+         value = read_tsv(H3K27M_filepath_list[[file]]))
+} 
+
+for(file in 1:length(WT_filepath_list)) {
+  assign(x = paste("RNA_WT", WT_filename_list[[file]], sep = "_"),
+         value = read_tsv(WT_filepath_list[[file]]))
+} 
+#Sorry about the readability of this for loop. The assign() function allows for the for loop to create a new dataframe for each interation of the loop. The x argument is the name that changes for each location in H3K27M_filepath_list - I created a vector called H3K27M_filename_list so that the new dataframe name is more readable. The value argument of assign() is what variable x is being assigned to.
+
+#To put it more simply, the x argument represents the left side of the <- when we typically assign objects, while the value argument represents the right side.
+
 
 #you only need the 
 
+
 ```
+
+```{r}
+H3K_RNA_list <- list()
+
+for(file in 1:length(H3K27M_filepath_list)) {
+  H3k_RNA_list[[file]] <- assign(x = paste("RNA_H3K", H3K27M_filename_list[[file]], sep = "_"),
+                                value = read_tsv(H3K27M_filepath_list[[file]]))
+}
+
+for(file in 1:length(H3K27M_filepath_list)) {
+  H3K_RNA_list[[file]] <- read_tsv(H3K27M_filepath_list[[file]]) #the NAME column is a character vector - we will see if this matters
+}
+
+for(file in 1:length(H3K_RNA_list)) {
+  H3K_RNA_list[[file]] %>% 
+  select(Name, TPM) %>% 
+  inner_join(H3K_RNA_list[[file + 1]], by = "Name")
+  
+}
+```
+
+
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
