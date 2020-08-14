@@ -19,9 +19,31 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+library(dplyr)
+library(tidyverse)
 
-#you only need the 
+#made list of wt file names
+wt_files <- list.files(path = "RNA_Seq_processed/WT", pattern = "*.sf") 
+
+#load, combine, and tidy data
+wt <- sapply(paste("RNA_Seq_processed/WT/", wt_files, sep = ""), read.table, header = TRUE, simplify = FALSE) %>% #read in all files
+  bind_rows(.id = "id") %>% #combine and mark original set name
+  select("Name", "id", "TPM") %>% #select only gene name, set name, and TPM
+  spread("id", "TPM") #spread TPM by id
+
+#rename columns
+colnames(wt) <- c("gene_id", wt_files)
+
+
+#repeat with H3K27M
+H3K27M_files <- list.files(path = "RNA_Seq_processed/H3K27M", pattern = "*.sf") 
+
+H3K27M <- sapply(paste("RNA_Seq_processed/H3K27M/", H3K27M_files, sep = ""), read.table, header = TRUE, simplify = FALSE) %>% 
+  bind_rows(.id = "id") %>%
+  select("Name", "id", "TPM") %>% 
+  spread("id", "TPM") 
+
+colnames(H3K27M) <- c("gene_id", H3K27M_files)
 
 ```
 
