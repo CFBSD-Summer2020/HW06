@@ -1,4 +1,7 @@
 # HW06
+
+I'm doing my own thing for this homework. My goal with this Rscript is to design an antisense oligonucleotide with a catalytic core that will bind a target sequence.
+______________________________________________________________________________________________
 Due August 17th
 
 As usual you can do your own thing for this HW, so long as it includes a for loop and a function. 
