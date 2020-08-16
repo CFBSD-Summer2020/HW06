@@ -19,7 +19,13 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too.
+
+library(readr)
+files <- list.files("./RNA_Seq_processed/", full.names =TRUE, recursive = TRUE)
+files_vec <- sapply(files_vec, read_tsv)
+
+
 
 #you only need the 
 
@@ -29,9 +35,9 @@ Now, install the packages commented below (if needed), and then use this code to
 
 ```{r map gene.ids to gene.symbols using ensembldb}
 
-#install.packages("BiocManager")
-#BiocManager::install("ensembldb")
-#BiocManager::install("EnsDb.Hsapiens.v75")
+install.packages("BiocManager")
+BiocManager::install("ensembldb")
+BiocManager::install("EnsDb.Hsapiens.v75")
 library(ensembldb)
 library(EnsDb.Hsapiens.v75)
 
