@@ -1,6 +1,7 @@
 ---
 title: "HW06"
 output: github_document
+author: "Daniel Krochmal"
 ---
 
 In cancer, mutations arise that promote growth or survival of cells. In glioblastoma multiforme and other high grade gliomas, a common mutation is a mutation of the 27th lysine (K) to a methionine (M) of the histone subunit H3, or in short H3K27M. 
@@ -14,15 +15,22 @@ Steps:
   3. For 27 genes of interest AND your favorite gene, perform a t-test to see if it is differentially expressed between the WT vs H3K27M samples
   4. Create a graphing function and then create a boxplot that graphs expression between the two groups
   
-  
 #### Code
+
+``` {r load packages, echo = FALSE, message = FALSE}
+library(readr)
+library(dplyr)
+library(knitr)
+```
+
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
-
-#you only need the 
-
+#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too.
+WT_list <- list.files(pattern = "*.sf", recursive = TRUE, include.dirs = TRUE)
+WT_data <- lapply(WT_list, function(x){read_tsv(x)})
+WT.df <- do.call("rbind", WT_data) %>%
+  select(Name, TPM)
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
