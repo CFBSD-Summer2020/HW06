@@ -25,9 +25,9 @@ library(knitr)
 
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
+
 ```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too.
-WT_list <- list.files(pattern = "*.sf", recursive = TRUE, include.dirs = TRUE)
+WT_list <- Sys.glob("RNA_Seq_processed/WT/*.sf")
 WT_data <- lapply(WT_list, function(x){read_tsv(x)})
 WT.df <- do.call("rbind", WT_data) %>%
   select(Name, TPM)
