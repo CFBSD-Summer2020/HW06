@@ -30,31 +30,36 @@ WT_filepath_list <- list.files(path = "RNA_Seq_processed/WT", full.names = TRUE)
 H3K27M_filename_list <- unlist(list.files(path = "RNA_Seq_processed/H3K27M"))
 WT_filename_list <- unlist(list.files(path = "RNA_Seq_processed/WT")) #and this creates a list of the file names without the path, and converts to a character vector using unlist()
 
-H3K27M_filename_list <- gsub(".sf", replacement = "", H3K27M_filename_list)
-WT_filename_list <- gsub(".sf", replacement = "", WT_filename_list) #updates these variables to filenames without extensions
+H3K27M_filename_list <- gsub(".sf", replacement = "_H3K", H3K27M_filename_list)
+WT_filename_list <- gsub(".sf", replacement = "_WT", WT_filename_list) #updates these variables to filenames without extensions
 
 ```
 
 ```{r}
 H3K_RNA_list <- list()
+WT_RNA_list <- list()
 
-
-for(file in 1:length(H3K27M_filepath_list)) {
+for(file in 1:length(H3K27M_filepath_list)) { #I might be able to use an apply function here instead, might try later
   H3K_RNA_list[[file]] <- read_tsv(H3K27M_filepath_list[[file]]) #the NAME column is a character vector - we will see if this matters
 }
-
-for(file in 1:length(H3K_RNA_list)) {
+for(file in 1:length(WT_filepath_list)) {
+  WT_RNA_list[[file]] <- read_tsv(WT_filepath_list[[file]])
+} #THis code reads in the files for H3K27M and WT data into a list of data frames
+  
+for(file in 1:length(H3K_RNA_list)) { #I can likely select for only TPM columns using contain() once the for loop is complete - I will do that later if I have the time
   H3K_RNA_list[[file]] <- H3K_RNA_list[[file]] %>% 
   select(Name, TPM)
+}
+for(file in 1:length(WT_RNA_list)) {
+  WT_RNA_list[[file]] <- WT_RNA_list[[file]] %>% 
+  select(Name, TPM) #This code selects for the Name and TPM column
 }
 
 H3K_RNA_Name <- H3K_RNA_list[[1]]
 H3K_RNA_join <- H3K_RNA_Name[1]
 
-H3K_TPMs <- sapply(H3K_RNA_list, select, TPM)
-
-
-
+WT_RNA_Name <- WT_RNA_list[[1]]
+WT_RNA_join <- WT_RNA_Name[1] #This code creates a data frame where the first and only column is the name column of the data
 
 ```
 
@@ -62,9 +67,19 @@ H3K_TPMs <- sapply(H3K_RNA_list, select, TPM)
 for(df in 1:length(H3K_RNA_list)) {
   H3K_RNA_join <- inner_join(H3K_RNA_list[[df]], H3K_RNA_join, by = "Name")
 }
+for(df in 1:length(WT_RNA_list)) {
+  WT_RNA_join <- inner_join(WT_RNA_list[[df]], WT_RNA_join, by = "Name")
+}
 
-rev_H3K_filename <- rev(H3K27M_filename_list)
-colnames(H3K_RNA_join) <- c("Name", rev_H3K_filename[1:df]) #This works!
+rev_H3K_filename <- rev(H3K27M_filename_list) #This reverse the order of the object because the for() loop adds the columns in a reverse order
+colnames(H3K_RNA_join) <- c("gene_id", rev_H3K_filename) #This works!
+
+rev_WT_filename <- rev(WT_filename_list)
+colnames(WT_RNA_join) <- c("gene_id", rev_WT_filename)
+
+
+GBM.transcripts <- H3K_RNA_join %>% 
+  inner_join(WT_RNA_join, by = "gene_id")
 ```
 
 
@@ -107,13 +122,24 @@ detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
 genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
-
+#It looks like one of these genes of interest in not in the GBM.genes.of.interest data frame. I think that is causing potential problems later on.
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
+t_test <- data.frame()
+for(gene in 1:length(genes_of_interest)) {
+  if(gene == 26) { #This is due to the test counting the column names as data, so I had to shift the for() loop down - meaning I also had to cut it short
+    break
+  }
+t_test <- tidy(t.test(x = GBM.genes.of.interest[gene + 1, 2:24],
+                      y = GBM.genes.of.interest[gene + 1, 25:46])) %>% 
+  bind_rows(t_test)
+}
 #print out the t-test results
+tidy(t.test(x = GBM.genes.of.interest[26, 2:24],
+            y = GBM.genes.of.interest[26, 25:46]))
 ```
 
 
