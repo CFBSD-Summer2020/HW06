@@ -1,0 +1,98 @@
+---
+title: "HW6 maria evers"
+author: "Maria Evers"
+date: "8/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## HW 06: Include a for loop and a function in your code.
+
+### For HW06 I will be using a for loop and function on some of my western blot data before graphing. 
+
+```{r}
+#Loading packages
+
+library(ggplot2)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+
+#reading in dataset 
+
+library(readxl)
+Western_blot <- read_excel("~/Documents/Western blot data 7 2020.xlsx", 
+    sheet = "R Data 2")
+
+str(Western_blot)
+
+
+
+#In the dataset, the expression levels need to be manipulated to be diplayed as a percent relative to the control:
+
+#First, select data to work with:
+
+Expression.nfkb <- Western_blot %>%
+  select(Normalized.expression)
+
+
+#Option 1: Manipulate data using a for loop:
+
+for (i in Expression.nfkb){
+  Expression.nfkb.loop <- Expression.nfkb/ 9.203333 * 100 #note: 9.203333 copied and pasted from data to normalize based on control 
+}
+
+colnames(Expression.nfkb.loop) <- c("Normalized.expression.percent")
+
+#Option 2: Maniuplate data using a function:
+
+function.to.percent <- function(x) {
+  
+  a <- x / 9.203333 
+  b <- a * 100
+  return(b)
+}
+
+Expression.nfkb.function <- function.to.percent(Expression.nfkb$Normalized.expression)
+
+
+#Up to this point I could have used either method to manipulate data before graphing. I Will go ahead and graph my data using option 1. First, I need to joing the datasets. Factor to manually order barchart bars. 
+
+NFKB <-cbind(Western_blot, Expression.nfkb.loop)
+
+NFKB1 <- NFKB
+factor(NFKB1$Treatment, levels = c("Control", "2_ATP", "6_ATP", "2_TGFB", "6_TGFB"))
+
+#Graph:
+
+ggplot(NFKB1, aes(Protein.name, Normalized.expression.percent, color = Treatment, fill = Treatment)) + 
+  geom_bar(aes(x = Treatment), stat = 'identity') +
+  facet_wrap(~ Protein.name) +
+  
+#Adding labels to the graphs 
+  
+  labs(title = element_blank(), x = element_blank(), y = "Relative Expression") +
+  
+#Making the graph look nicer
+  
+  scale_color_brewer(palette = "Paired") +
+  
+  scale_fill_brewer(palette = "Paired") +
+  
+  theme_bw() +
+  
+  theme(plot.title = element_text(hjust = 0.5, size = 14), axis.text = element_text(size = 8, color = "black"), axis.title = element_text(size = 14), axis.text.x = element_blank(), axis.ticks.x = element_blank()) 
+  
+#I am unsure why my manual factoring of my Treatments did not apply to my graph ):   
+
+```
+
