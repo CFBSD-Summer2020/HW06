@@ -18,16 +18,38 @@ Steps:
 #### Code
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
-```{r load in data}
+```{r load in data, message = FALSE}
+library(tidyverse)
+library(readr)
+library(stringr)
+library(knitr)
+
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
 #you only need the 
 
+# Create a function to read the specific columns
+read_col <- function(data){
+  file <- read_tsv(data)
+  return(file[["TPM"]])
+}
+
+# Get all the file directories
+RNA_files <- c(str_c("RNA_Seq_processed/H3K27M/",list.files("RNA_Seq_processed/H3K27M")), str_c("RNA_Seq_processed/WT/",list.files("RNA_Seq_processed/WT")))
+
+# Read and combine the "TPM" column of all the files
+GBM.transcripts <- data.frame(sapply(RNA_files,read_col))
+
+# Get the "name" column
+file1 <- read_tsv(RNA_files[[1]])
+
+# Combine the "name" column and the "TPM" columns
+GBM.transcripts$gene_id <- file1$Name
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
-```{r map gene.ids to gene.symbols using ensembldb}
+```{r map gene.ids to gene.symbols using ensembldb, message = FALSE}
 
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
@@ -61,14 +83,41 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+genes_of_interest <- c("OR4G4P", "IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
 
+# I found there are 2 "PTEN", so I deleted one. Hope that is okay.
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
+H3K27M <- GBM.genes.of.interest %>% 
+  dplyr::select(contains(".H3K27M."), gene_symbol) %>% 
+  gather(key = "Sample", value = "Expression27", -gene_symbol) %>% 
+  mutate(type = "H3K27M")
+  
+WT <- GBM.genes.of.interest %>% 
+    dplyr::select(contains(".WT."), gene_symbol) %>% 
+  gather(key = "Sample", value = "Expression27", -gene_symbol) %>% 
+  mutate(type = "WT")
+
+GBM.genes.of.interest2 <- rbind(H3K27M, WT)
+
+t_results <- list()
+for (i in genes_of_interest){
+  gene_temp <- GBM.genes.of.interest2[GBM.genes.of.interest2$gene_symbol == i,]
+  t_results[[i]] <- t.test(gene_temp$Expression27[gene_temp$type == "H3K27M"],gene_temp$Expression27[gene_temp$type == "WT"])
+}
+
+
+# Make a table to store the results
+t_results_sum <- data.frame(genes_of_interest,sapply(t_results, function(l) l[["statistic"]]), sapply(t_results, function(l) l[["p.value"]]))
+
+colnames(t_results_sum)[2:3] <- c("t_statistic", "p_value")
+rownames(t_results_sum) <- NULL
+
 #print out the t-test results
+kable(t_results_sum)
 ```
 
 
@@ -78,11 +127,22 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
 
-
+GBM.genes.of.interests_split <- GBM.genes.of.interest2 %>% 
+  group_split(gene_symbol)
 
 #create a graphing function
+my_plot <- function(data){
+  p_temp <- ggplot(data, aes(x = type, y = Expression27, fill = type)) +
+  geom_boxplot() +
+  labs(title = paste0(data$gene_symbol[1]," Expression in GBM models \n by H3K27 Mutated or WT Status"), x = "H3K27", y = "Expression_(TPM)") +
+  theme(plot.title = element_text(hjust = 0.5),legend.position = "none") +
+  scale_x_discrete(labels = c('H3K27_Mutated','WT'))
+  
+  print(p_temp)
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+lapply(GBM.genes.of.interests_split, my_plot)
 ```
 
 
