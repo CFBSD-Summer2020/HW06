@@ -14,21 +14,35 @@ Steps:
   3. For 27 genes of interest AND your favorite gene, perform a t-test to see if it is differentially expressed between the WT vs H3K27M samples
   4. Create a graphing function and then create a boxplot that graphs expression between the two groups
   
-  
+
 #### Code
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
-```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
-#you only need the 
+```{r load in data, message = FALSE}
+library(tidyverse)
+library(tools)
 
+files_to_open <- list.files("RNA_Seq_processed", recursive = TRUE, full.names = TRUE)
+
+open_files_for_TPM <- function(x) {
+  group_name = basename(dirname(x))
+  
+  read_tsv(x) %>% 
+    select(TPM) %>%
+    rename(!! group_name := TPM)
+}
+
+gene_names <- read_tsv(files_to_open[1]) %>%
+  select(Name) %>%
+  rename(gene_id = Name)
+
+GBM.transcripts <- bind_cols(c(gene_names, lapply(files_to_open, open_files_for_TPM)))
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
-```{r map gene.ids to gene.symbols using ensembldb}
-
+```{r map gene.ids to gene.symbols using ensembldb, message = FALSE}
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
 #BiocManager::install("EnsDb.Hsapiens.v75")
@@ -48,10 +62,7 @@ ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")
 ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
-
 ```
-
-
 
 Do the t-test and make a table of the t-test results!
 
@@ -61,28 +72,53 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
-
+#I added 5S_rRNA :)
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "5S_rRNA")
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
-#print out the t-test results
+#to work in the tidyverse, it will be easier to make tidy the dataframe first
+
+tidy.GBM.genes.of.interest <- GBM.genes.of.interest %>% 
+  gather(key = "key", value = "value", -gene_symbol)  %>%
+  separate(key, into = c ("group", "order"), convert = TRUE)
+
+for (gene in genes_of_interest) {
+  gene_df <- tidy.GBM.genes.of.interest  %>%
+    filter(gene_symbol == gene)
+
+  #print out the t-test results
+  print(paste("========", gene, "========"))
+  print(t.test(value ~ group, gene_df))
+}
 ```
-
-
 
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
 ```{r create a graphing function}
-#to work in the tidyverse, it will be easier to make tidy the dataframe first
-
-
-
 #create a graphing function
+graph_gene <- function(x) {
+  gene_df <- tidy.GBM.genes.of.interest  %>%
+    filter(gene_symbol == gene)
+  
+  p1 <- ggplot(gene_df, aes(group, value, fill = group)) + 
+    geom_boxplot() +
+    scale_x_discrete(labels = c('H3K27_Mutated','WT')) +
+    labs(title = paste(gene, "Expression in GBM models\n by H3K27 Mutated or WT Status"), 
+         x ="H3K27", y = "Expression_(TPM)") +
+    theme_bw() +
+    theme(legend.position = "none") +
+    theme(plot.title = element_text(hjust = 0.5))
+
+  print(p1)
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+for (gene in genes_of_interest) {
+  graph_gene(gene)
+}
 ```
 
 
