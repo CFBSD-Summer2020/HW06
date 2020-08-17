@@ -21,16 +21,31 @@ Steps:
 library(readr)
 library(dplyr)
 library(knitr)
+library(tidyverse)
 ```
 
 
-From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
+From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data.
 
 ```{r load in data}
+
 WT_list <- Sys.glob("RNA_Seq_processed/WT/*.sf")
 WT_data <- lapply(WT_list, function(x){read_tsv(x)})
 WT.df <- do.call("rbind", WT_data) %>%
-  select(Name, TPM)
+  select(Name, TPM) %>%
+  mutate(type = "WT") %>%
+  rename(gene_id = Name)
+  
+H3K27M_list <- Sys.glob("RNA_Seq_processed/H3K27M/*.sf")
+H3K27M_data <- lapply(H3K27M_list, function(x){read_tsv(x)})
+H3K27M.df <- do.call("rbind", H3K27M_data) %>%
+  select(Name, TPM) %>%
+  mutate(type = "H3K27M") %>%
+  rename(gene_id = Name)
+
+GBM.transcripts <- WT.df %>%
+  rbind(H3K27M.df)
+
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
@@ -53,30 +68,43 @@ ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")
   dplyr::select(-1) %>% 
   dplyr::select(gene_symbol = SYMBOL, everything())
 
-ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
+#Dan: Since I prepared my data frame long-wise and I intended to have duplicated gene symbols (each duplicate has their own TPM values assigned), I'm commenting out the line below
+
+#ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
 
 ```
+```{r detach packages}
 
-
-
-Do the t-test and make a table of the t-test results!
-
-```{r t.test for difference between a bunch of genes}
 #run this code to unload the libraries from before, it might be helpful because the select() function from dplyr might be hidden otherwise
 detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
-#add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+```
 
+Do the t-test and make a table of the t-test results!
+
+```{r t.test for difference between a bunch of genes}
+
+#add in your own gene of interest!!! 
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "RN7SL2") #added RN7SL2
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
-#print out the t-test results
+for (gene in genes_of_interest) {
+  
+  WT_gene <- GBM.genes.of.interest %>%
+    filter(gene_symbol == gene, type == "WT")
+  
+  mut_gene <- GBM.genes.of.interest %>%
+    filter(gene_symbol == gene, type == "H3K27M")
+  
+  pvalue <- t.test(mut_gene$TPM, WT_gene$TPM)$p.value
+  print(paste0(gene, ": ", signif(pvalue, digits = 3)))
+}
 ```
 
 
