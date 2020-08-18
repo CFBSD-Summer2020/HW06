@@ -1,4 +1,5 @@
 ---
+author: Ariana Tortolani
 title: "HW06"
 output: github_document
 ---
@@ -19,9 +20,37 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+#hint, using apply (specifically lapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
-#you only need the 
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+
+# list.files : produces a character vector of the names of files in the named directory
+H3K27M_names <- list.files("./RNA_Seq_processed/H3K27M", full.names=TRUE)
+WT_names <- list.files("./RNA_Seq_processed/WT", full.names=TRUE)
+
+#create read_in function to read in only TPM
+read_in <- function(x){
+  read_tsv(x) %>%
+  select(contains("TPM"))
+}
+
+#read in the data using read_in defined function above in the format of a data.frame
+H3K27M <- data.frame(lapply(H3K27M_names, read_in))
+WT <- data.frame(lapply(WT_names, read_in))
+
+#get name col
+name_col <- read_tsv(H3K27M_names[1]) %>%
+  select(Name) %>%
+  rename(gene_id = Name)
+
+#combine the data (list with all files)
+all_data <- c(H3K27M, WT) 
+
+#create data frame GBM.transcripts as indicated below
+GBM.transcripts <- bind_cols(name_col, all_data)
+
 
 ```
 
@@ -63,10 +92,12 @@ detach(package:ensembldb, unload = T)
 #add in your own gene of interest!!! 
 genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
 
-
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
+
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
+
+
 
 #print out the t-test results
 ```
@@ -78,11 +109,35 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
 
+tidy_data <- GBM.genes.of.interest %>% 
+  gather(key = "key", value = "value", -gene_symbol)  %>%
+  separate(key, into = c ("group", "order"), convert = TRUE)
 
 
 #create a graphing function
+graph <- function(x) {
+  gene_data <- tidy_data %>%
+    filter(gene_symbol == gene)
+  
+  plot1 <- ggplot(gene_data, aes(group, value, fill = group)) + 
+    geom_boxplot() +
+    scale_x_discrete(labels = c('H3K27_Mutated','WT')) +
+    labs(title = paste(gene, "Expression in GBM models\n by H3K27 Mutated or WT Status"), 
+         x ="H3K27", y = "Expression_(TPM)") +
+    theme_bw() +
+    theme(legend.position = "none") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(plot1)
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+for (gene in genes_of_interest) {
+  graph(gene)
+}
+
+
+#when i graph this i seem to only get the H3K27_Mutated but not the WT and I am not sure why
+
 ```
 
 
