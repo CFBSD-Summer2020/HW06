@@ -27,7 +27,18 @@ library(tidyverse)
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data.
 
-```{r load in data}
+```{r load in data, message = FALSE}
+
+#Defining factors mainly for better control over the order of boxplots later on
+type <- factor(c("H3K27M_mutated", "WT"))
+
+#This chunk creates a list of .sf files in specified subfolder, batch loads them in, binds them together and applies "H3K27M_mutated" or "WT" factor to the values
+H3K27M_list <- Sys.glob("RNA_Seq_processed/H3K27M/*.sf")
+H3K27M_data <- lapply(H3K27M_list, function(x){read_tsv(x)})
+H3K27M.df <- do.call("rbind", H3K27M_data) %>%
+  select(Name, TPM) %>%
+  mutate(type = "H3K27M_mutated") %>%
+  rename(gene_id = Name)
 
 WT_list <- Sys.glob("RNA_Seq_processed/WT/*.sf")
 WT_data <- lapply(WT_list, function(x){read_tsv(x)})
@@ -35,14 +46,8 @@ WT.df <- do.call("rbind", WT_data) %>%
   select(Name, TPM) %>%
   mutate(type = "WT") %>%
   rename(gene_id = Name)
-  
-H3K27M_list <- Sys.glob("RNA_Seq_processed/H3K27M/*.sf")
-H3K27M_data <- lapply(H3K27M_list, function(x){read_tsv(x)})
-H3K27M.df <- do.call("rbind", H3K27M_data) %>%
-  select(Name, TPM) %>%
-  mutate(type = "H3K27M") %>%
-  rename(gene_id = Name)
 
+#Binding WT and H3K27M dataframes together and generating input for Robert's script
 GBM.transcripts <- WT.df %>%
   rbind(H3K27M.df)
 
@@ -50,7 +55,7 @@ GBM.transcripts <- WT.df %>%
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
-```{r map gene.ids to gene.symbols using ensembldb}
+```{r map gene.ids to gene.symbols using ensembldb, message = FALSE}
 
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
@@ -68,16 +73,16 @@ ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")
   dplyr::select(-1) %>% 
   dplyr::select(gene_symbol = SYMBOL, everything())
 
-#Dan: Since I prepared my data frame long-wise and I intended to have duplicated gene symbols (each duplicate has their own TPM values assigned), I'm commenting out the line below
+#Since I prepared my data frame long-wise and I intended to have duplicated gene symbols (each duplicate has their own TPM values assigned), I'm commenting out the line below
 
 #ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
 
 ```
+
 ```{r detach packages}
 
-#run this code to unload the libraries from before, it might be helpful because the select() function from dplyr might be hidden otherwise
 detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
@@ -87,12 +92,9 @@ Do the t-test and make a table of the t-test results!
 
 ```{r t.test for difference between a bunch of genes}
 
-#add in your own gene of interest!!! 
 genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "RN7SL2") #added RN7SL2
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
-
-#Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
 for (gene in genes_of_interest) {
   
@@ -100,10 +102,11 @@ for (gene in genes_of_interest) {
     filter(gene_symbol == gene, type == "WT")
   
   mut_gene <- GBM.genes.of.interest %>%
-    filter(gene_symbol == gene, type == "H3K27M")
+    filter(gene_symbol == gene, type == "H3K27M_mutated")
   
+  #I simplified the output to show only the p-values
   pvalue <- t.test(mut_gene$TPM, WT_gene$TPM)$p.value
-  print(paste0(gene, ": ", signif(pvalue, digits = 3)))
+  print(paste0(gene, " ", signif(pvalue, digits = 3)))
 }
 ```
 
@@ -112,13 +115,38 @@ for (gene in genes_of_interest) {
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
 ```{r create a graphing function}
-#to work in the tidyverse, it will be easier to make tidy the dataframe first
+library(ggplot2)
 
+#Creating a graphing function
+graphIt <- function(gene) {
+  
+  gene_sele <- GBM.genes.of.interest %>%
+    filter(gene_symbol == gene)
+  
+    plot <- ggplot(gene_sele, aes(x = type, y = TPM, fill = type)) +
+      geom_boxplot() +
+      
+      theme_bw() +
+      
+      theme(
+        legend.position = "none",
+        plot.title = element_text(hjust = 0.5)
+      ) +
+      
+      labs(
+        x = "H3K27M",
+        y = "Expression_(TPM)",
+        title = paste0(gene, " Expression in GBM models\nby H3K27M Mutated or WT Status")
+      )
+    
+    print(plot)
+}
 
+#Creating a for loop that calls the graphing function over all genes in genes_of_interest vector
+for (gene in genes_of_interest) {
+  graphIt(gene)
+}
 
-#create a graphing function
-
-#then use a for loop combined with the graphing function to make a graph for all your genes of interest 
 ```
 
 
