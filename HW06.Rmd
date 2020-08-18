@@ -19,9 +19,20 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
+library(magrittr)
+library(tidyverse)
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
-#you only need the 
+RNA_Seq_processed_list <- list.files("RNA_Seq_processed/", pattern = "*.sf", recursive = T, full.names = T)
+
+H3K27M_list <- RNA_Seq_processed_list[grep("H3K27M", RNA_Seq_processed_list)]
+WT_list <- RNA_Seq_processed_list[grep("WT", RNA_Seq_processed_list)]
+
+H3K27M_data <- lapply(H3K27M_list, read_tsv)
+WT_data <- lapply(WT_list, read_tsv)
+
+H3K27M_df <- bind_rows(H3K27M_data)
+WT_df <- bind_rows(WT_data)
 
 ```
 
@@ -45,7 +56,7 @@ ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")
   dplyr::select(-1) %>% 
   dplyr::select(gene_symbol = SYMBOL, everything())
 
-ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
+#ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
 
