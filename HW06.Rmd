@@ -20,8 +20,35 @@ Steps:
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+library(tidyverse)
+h3k27m_list <- list.files("RNA_Seq_processed/H3K27M")
+wildtype_list <- list.files("RNA_Seq_processed/WT")
 
-#you only need the 
+#create a dataframe with the first set of data from H3K27M files
+full_list <- read_tsv(paste("RNA_Seq_processed/H3K27M/", h3k27m_list[1],sep = ""), col_types = cols()) %>%
+  dplyr::select("Name","TPM")
+colnames(full_list) <- c("gene_id","H3K27M.1")
+
+#add other datasets as columns after the first one
+for (i in 2:length(h3k27m_list)){
+  full_list <- full_list%>%
+    cbind(read_tsv(paste("RNA_Seq_processed/H3K27M/", h3k27m_list[i], sep = ""),col_types = cols()) %>%
+            dplyr::select("TPM"))
+    colnames(full_list)[i+1] <- paste("H3K27M.", i, sep = "")
+}
+
+#get the value of current full list
+j <- length(full_list)
+
+#add wildtype data after the mutant ones
+for (i in 1:length(wildtype_list)){
+  full_list <- full_list %>%
+    cbind(read_tsv(paste("RNA_Seq_processed/WT/",wildtype_list[i],sep = ""),col_types = cols()) %>%
+            dplyr::select("TPM"))
+    colnames(full_list)[j+i] <- paste("WILDTYPE.", i, sep = "")
+}
+
+
 
 ```
 
@@ -32,9 +59,14 @@ Now, install the packages commented below (if needed), and then use this code to
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
 #BiocManager::install("EnsDb.Hsapiens.v75")
+#install.packages("XML", repos = "http://www.omegahat.net/R")
+library(XML)
+library(BiocManager)
 library(ensembldb)
 library(EnsDb.Hsapiens.v75)
 
+
+GBM.transcripts <- full_list
 ens.GBM.transcripts <- GBM.transcripts %>% 
   mutate(gene_id = gsub(pattern = "\\..*", "", .$gene_id))
 
@@ -67,7 +99,13 @@ genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZF
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
-
+GBM.genes.of.interest <- gather(GBM.genes.of.interest, key = "sample", value = "TPM", 2:46)%>%
+  separate(col = sample, into = c("Sample","Number"),sep = "\\.")
+for (i in genes_of_interest){
+  gene <- filter(GBM.genes.of.interest, gene_symbol == i)
+  print(i)
+  print(t.test(gene$TPM[gene$Sample == "H3K27M"], gene$TPM[gene$Sample == "WILDTYPE"]))
+}
 #print out the t-test results
 ```
 
@@ -77,13 +115,19 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
-
-
-
 #create a graphing function
-
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+
+for (i in genes_of_interest){
+  filtered <- filter(GBM.genes.of.interest, gene_symbol == i)
+  figure <- ggplot(filtered, aes(Sample, TPM))+
+    geom_boxplot(aes(fill = Sample))+
+    labs(title = paste(i, "Expression in GBM models by H3K27 Mutated or WT status"))
+  print(figure)
+}
 ```
+
+
 
 
 ```{r reproducibility}
