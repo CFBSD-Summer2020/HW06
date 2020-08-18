@@ -20,8 +20,28 @@ Steps:
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+library(tidyverse) #load tidyverse
+library(dplyr) #load dplyr
 
-#you only need the 
+#LOAD FILES
+WT_filenames <- list.files("./RNA_Seq_processed/WT", pattern="*.sf", full.names=TRUE) #WT
+H3K27M_filenames <- list.files("./RNA_Seq_processed/H3K27M", pattern="*.sf", full.names=TRUE) #HK327M
+all_filenames <- c(WT_filenames, H3K27M_filenames) #together!
+gene_n_filenames <- c("gene_id", str_remove(all_filenames, "./RNA_Seq_processed/")) #col names
+
+#READ FILES
+read_files <- function(x){ #make reading fxn
+  if(x == all_filenames[1]){ #first file includes Name
+    read_tsv(x) %>% select(Name, TPM) #read Name and TRM
+  }else{ #others just include TRM
+    read_tsv(x) %>% select(TPM) #read TRM
+  }
+}
+all_files <- sapply(all_filenames, read_files) #use above fxn on all files
+
+#ORGANIZE FILES
+GBM.transcripts <- bind_cols(all_files) #bind all files
+colnames(GBM.transcripts) <- gene_n_filenames #name cols appropriately
 
 ```
 
@@ -69,6 +89,29 @@ GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_intere
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
 #print out the t-test results
+
+#TIDY DATA FOR T-TEST
+data_names <- c("WT", "H3K27M") #add any new ones as desired
+for (i in 1:length(data_names)){ #for loop based on data_names makes flexible to add others later
+  nam <- data_names[i] #name of this variant
+  assign(nam, GBM.genes.of.interest %>% #pull from this table
+    dplyr::select(gene_symbol, starts_with(data_names[i])) %>% #only use this variant
+    gather(key = "gene", value = "expression", -gene_symbol) %>% #gather all rows except gene_symbol
+    spread(key = "gene_symbol", value = "expression")) #spread based on variant/expression
+}
+
+#RUN T-TEST
+t_stat <- list() #pre-allocate t-stat
+p_value <- list() #pre-allocate p-value
+for(i in 2:length(WT)){ #go through WT table (except gene_symbol)
+  gene <- colnames(H3K27M)[i] #gene is based on iteration
+  t_stat[gene] <- t.test(WT[,i], H3K27M[,i])$statistic #record t-stat for this gene
+  p_value[gene] <- t.test(WT[,i], H3K27M[,i])$p.value #record p-value for this gene
+}
+test_df <- do.call(rbind, Map(data.frame, t=t_stat, p=p_value)) #bind t and p above and save
+print(test_df) #print t-test results
+
+
 ```
 
 
@@ -76,13 +119,37 @@ GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_intere
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
 ```{r create a graphing function}
+library(ggplot2) #load ggplot2
+
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
-
-
+tidy_GBM <- GBM.genes.of.interest %>%
+  gather(key = "gene", value = "expression", -gene_symbol) %>% #gather all rows except gene_symbol
+  spread(key = "gene_symbol", value = "expression") %>% #spread based on gene_symbol
+  separate(gene, sep = "/", into = c("status", "file")) #make status/variant and file/gene separate
+tidy_GBM$status[tidy_GBM$status == "H3K27M"] <- "H3K27M_mutated" #change name to reflect plot example
 
 #create a graphing function
+graphing_FUN <- function(y){ #fun with graphs
+  ggplot(tidy_GBM, aes_(quote(status), quote(y), fill = quote(status))) + #plot based on quotes
+    geom_boxplot() +  #box plot!
+    labs(x = "H3K27M" ,y = "Expression_(TPM)") + #axis labels
+    theme(legend.position = "none") + #no legend!
+    theme(plot.title = element_text(hjust = 0.5)) #center title
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+for(i in 3:length(tidy_GBM)){ #iterate through all genes
+  image_file <- paste0("./plots/",colnames(tidy_GBM)[i],".png") #name of this iteration's image file
+  dir.create(dirname(image_file), showWarnings = FALSE) #make a plots folder
+  png(image_file) #save current iteration's plot as a png file
+  plot.new() #each iteration is a new plot
+  p <- graphing_FUN(tidy_GBM[[i]])+ #use graphing function on current iteration col
+    labs(title = paste(colnames(tidy_GBM)[i], #title changes based on col
+                       "Expression in GBM models\nby H3K27 Mutated or WT Status"))
+  print(p) #printing plot for png file to snapshot
+  dev.off() #png file has completed save
+}
+
 ```
 
 
