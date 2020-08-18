@@ -21,9 +21,37 @@ From the RNA-Seq files, you only need the "Name" from one file and the "TPM" col
 ```{r load in data}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
-#you only need the 
+#Finally, I'll give another hint for reading in all the files, the function `list.files()` can be used to create a vector of file names for all the files in a directory. 
+#Each file represents a different model of GBM, but the genes sequenced are the same. Indeed, the genes should even be in the same order in every single file.
+
+#read in the H3K27M data
+
+setwd("../HW06/RNA_Seq_processed/H3K27M")
+file_list <- list.files()
+H3K27M <- NULL
+
+for (i in (1:length(file_list))) {
+  a <- read.csv(file_list[i], header = TRUE, stringsAsFactors = FALSE, sep = "", fill = TRUE, check.names=FALSE)
+  H3K27M <- rbind(a, H3K27M)
+}
 
 ```
+```{r load in data}
+#Read in the WT data
+
+setwd("../HW06/RNA_Seq_processed/WT")
+file_list <- list.files()
+WT <- NULL
+
+for (i in (1:length(file_list))) {
+  a <- read.csv(file_list[i], header = TRUE, stringsAsFactors = FALSE, sep = "", fill = TRUE, check.names=FALSE)
+  WT <- rbind(a, WT)
+}
+
+```
+
+Now, we have all files we need in place: WT and H3K27M, and within them, there are replicates.
+
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
@@ -32,9 +60,22 @@ Now, install the packages commented below (if needed), and then use this code to
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
 #BiocManager::install("EnsDb.Hsapiens.v75")
+
 library(ensembldb)
 library(EnsDb.Hsapiens.v75)
+library(dplyr)
 
+#adjust the two dataframes, so that they meet the rule of using Robert code
+H3K27M <- cbind(H3K27M$Name, H3K27M$TPM)
+H3K27M <- as.data.frame(H3K27M)
+colnames(H3K27M) <- c("gene_id", "TPM")
+
+WT <- cbind(WT$Name, WT$TPM)
+WT <- as.data.frame(WT)
+colnames(WT) <- c("gene_id", "TPM")
+
+#I create Robert code as a function
+mapping <- function(GBM.transcripts){
 ens.GBM.transcripts <- GBM.transcripts %>% 
   mutate(gene_id = gsub(pattern = "\\..*", "", .$gene_id))
 
@@ -48,6 +89,12 @@ ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")
 ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
+return(ens.mapped_GBM)
+}
+
+#Now, use the function created, for WT and H3K27M mapping for gene names
+WT <- mapping(WT)
+H3K27M <- mapping(H3K27M)
 
 ```
 
@@ -60,13 +107,32 @@ Do the t-test and make a table of the t-test results!
 detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
-#add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+#add in your own gene of interest!!! I added gene PDK1
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2","PDK1")
 
 
-GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
+WT_gene_of_interest <- filter(WT, gene_symbol %in% genes_of_interest)
+WT_gene_of_interest$TPM <- as.numeric(WT_gene_of_interest$TPM)
+
+H3K27M_gene_of_interest <- filter(H3K27M, gene_symbol %in% genes_of_interest)
+H3K27M_gene_of_interest$TPM <- as.numeric(H3K27M_gene_of_interest$TPM)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
+
+
+for(i in 1:27){
+  genes_of_interest[i]
+  WT_loop <- subset(WT_gene_of_interest, gene_symbol == genes_of_interest[i])
+  H3K27M_loop <- subset(H3K27M_gene_of_interest, gene_symbol == genes_of_interest[i])
+  #make sure the t test are in numeric
+  t <- t.test(WT_loop$TPM, H3K27M_loop$TPM)
+  print(t)
+}
+
+#create a readaable summary result for t test
+t <- as.data.frame(t)
+t <- cbind(as.data.frame(WT_gene_of_interest$gene_symbol), t)
+colnames(t) <- c("gene_symbol" , "t_test_for_WT_H3K27M")
 
 #print out the t-test results
 ```
@@ -78,6 +144,22 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
 
+WT_gene_of_interest[,3] <- c("WT")
+colnames(WT_gene_of_interest) <- c("gene_symbol","TPM","category")
+H3K27M_gene_of_interest[,3] <- c("H3K27M")
+colnames(H3K27M_gene_of_interest) <- c("gene_symbol","TPM","category")
+
+WT_H3K27M <- rbind(WT_gene_of_interest, H3K27M_gene_of_interest)
+
+for(i in 1:27){
+  
+  WT_H3K27M_loop <- subset(WT_H3K27M, gene_symbol == genes_of_interest[i])
+  #make sure the t test are in numeric
+  ggplot(WT_H3K27M_loop, aes(x=category, y=TPM))+
+    geom_boxplot(aes(color = category))+
+    labs(x = "Category", y = "TPM", title = WT_gene_of_interest[i])
+  
+}
 
 
 #create a graphing function
