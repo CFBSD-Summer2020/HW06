@@ -1,6 +1,9 @@
 # HW06
 Due August 17th
 
+See my attempt for this assignment in [HW06.Rmd file](HW06.Rmd).
+
+
 As usual you can do your own thing for this HW, so long as it includes a for loop and a function. 
 
 You will like find this HW prompt a bit difficult, I think. However, it will have some very good lessons for everyone and is a relevant example for people. Look at the [HW06.Rmd file](HW06.Rmd) for the full prompt, but it involves looking whether the H3K27M mutation in glioblastoma cell lines affect the transcription (mRNA) levels of 27 genes of interest. It involves you figuring out how to read in many datasets, do many statistical tests, creating a graphing function and graphing the results. 

@@ -19,9 +19,22 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
-#hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+library(dplyr)
+library(tidyverse)
 
-#you only need the 
+#made list of file names
+all_files <- list.files(path = "RNA_Seq_processed", full.names = TRUE, recursive = TRUE, pattern = "*.sf") 
+  #thank you Alex and Sherzod for the full.names and recursive arguments, my code was an absolute mess and twice as long before this :) <3
+
+#load, combine, and tidy data
+GBM.transcripts <- sapply(all_files, read.table, header = TRUE, simplify = FALSE) %>% #read in all files
+  bind_rows(.id = "id") %>% #combine and mark original set name
+  select("Name", "id", "TPM") %>% #select only gene name, set name, and TPM
+  spread("id", "TPM") #spread TPM by id
+#final product: dataframe, 1 col for names, 1 TPM col per file
+
+#rename columns
+colnames(GBM.transcripts) <- c("gene_id", all_files)
 
 ```
 
@@ -29,9 +42,9 @@ Now, install the packages commented below (if needed), and then use this code to
 
 ```{r map gene.ids to gene.symbols using ensembldb}
 
-#install.packages("BiocManager")
-#BiocManager::install("ensembldb")
-#BiocManager::install("EnsDb.Hsapiens.v75")
+install.packages("BiocManager")
+BiocManager::install("ensembldb")
+BiocManager::install("EnsDb.Hsapiens.v75")
 library(ensembldb)
 library(EnsDb.Hsapiens.v75)
 
@@ -52,7 +65,6 @@ ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA
 ```
 
 
-
 Do the t-test and make a table of the t-test results!
 
 ```{r t.test for difference between a bunch of genes}
@@ -60,18 +72,23 @@ Do the t-test and make a table of the t-test results!
 detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
-#add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
-
+#added: TWIST1, SNAI1, and SOX4
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "TWIST1", "SNAI1", "SOX4")
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
+#WT samples are found col 25 - 46, H3K 2 - 24
+for(row in 1:nrow(GBM.genes.of.interest)){
+  print(t.test(GBM.genes.of.interest[row,25:46], GBM.genes.of.interest[row,2:24]))
+}
+
 #print out the t-test results
+
+
 ```
-
-
+This is where I get stuck. I'm not sure how to store my t-test output into a dataframe to use for the next section. I saw on stack overflow I could use magicfor, but when I try to load the package it tells me it doesn't exist. I'm also not sure how to approach the rest.
 
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
