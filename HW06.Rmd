@@ -109,11 +109,35 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
 
+tidy_data <- GBM.genes.of.interest %>% 
+  gather(key = "key", value = "value", -gene_symbol)  %>%
+  separate(key, into = c ("group", "order"), convert = TRUE)
 
 
 #create a graphing function
+graph <- function(x) {
+  gene_data <- tidy_data %>%
+    filter(gene_symbol == gene)
+  
+  plot1 <- ggplot(gene_data, aes(group, value, fill = group)) + 
+    geom_boxplot() +
+    scale_x_discrete(labels = c('H3K27_Mutated','WT')) +
+    labs(title = paste(gene, "Expression in GBM models\n by H3K27 Mutated or WT Status"), 
+         x ="H3K27", y = "Expression_(TPM)") +
+    theme_bw() +
+    theme(legend.position = "none") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(plot1)
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+for (gene in genes_of_interest) {
+  graph(gene)
+}
+
+
+#when i graph this i seem to only get the H3K27_Mutated but not the WT and I am not sure why
+
 ```
 
 
