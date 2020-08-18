@@ -19,9 +19,10 @@ Steps:
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
-install.packages("readr")
 library("readr")
 library("dplyr")
+library("tidyr")
+library("ggplot2")
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
 H3K27M_filepath_list <- list.files(path = "RNA_Seq_processed/H3K27M", full.names = TRUE)
@@ -35,7 +36,7 @@ WT_filename_list <- gsub(".sf", replacement = "_WT", WT_filename_list) #updates 
 
 ```
 
-```{r}
+```{r, message = FALSE}
 H3K_RNA_list <- list()
 WT_RNA_list <- list()
 
@@ -86,7 +87,7 @@ GBM.transcripts <- H3K_RNA_join %>%
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
-```{r map gene.ids to gene.symbols using ensembldb}
+```{r map gene.ids to gene.symbols using ensembldb, message = FALSE}
 
 
 #install.packages("BiocManager")
@@ -121,39 +122,52 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
-#It looks like one of these genes of interest in not in the GBM.genes.of.interest data frame. I think that is causing potential problems later on.
-
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "PAM")
+#gene "PTEN" is repeated here, so I got rid of the extra
+#I picked the gene PAM, since I studied the protein during undergrad
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
+genes_of_interest_2 <- as.factor(rev(GBM.genes.of.interest$gene_symbol))
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
-
+library("broom")
 t_test <- data.frame()
 for(gene in 1:length(genes_of_interest)) {
-  if(gene == 26) { #This is due to the test counting the column names as data, so I had to shift the for() loop down - meaning I also had to cut it short
-    break
-  }
-t_test <- tidy(t.test(x = GBM.genes.of.interest[gene + 1, 2:24],
-                      y = GBM.genes.of.interest[gene + 1, 25:46])) %>% 
-  bind_rows(t_test)
+t_test <- tidy(t.test(x = GBM.genes.of.interest[gene, 2:24],
+                      y = GBM.genes.of.interest[gene, 25:46])) %>% 
+  bind_rows(t_test)  
 }
+t_test <- mutate(t_test, gene_symbol = genes_of_interest_2) %>% 
+  dplyr::select(gene_symbol, everything())
 #print out the t-test results
-tidy(t.test(x = GBM.genes.of.interest[26, 2:24],
-            y = GBM.genes.of.interest[26, 25:46]))
+
+print(t_test)
+
 ```
 
 
 
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
+**I had difficulty from this point on, so I'll wait to see how others cleaned their data and graphed**
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
-
+t_test_2 <- t_test %>% 
+  dplyr::select(gene_symbol, estimate1, estimate2, conf.low, conf.high) %>%  
+  gather(key = "cell_line_type", value = "mean", estimate1:estimate2) %>% 
+  group_by(gene_symbol) # group_by() doesn't seem to be working here
 
 
 #create a graphing function
 
+graphing_function <- function(gene) {
+  ggplot(aes(x = cell_line_type, y = ))
+}
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+
+t_test_2 %>% 
+  filter(gene_symbol == "ATRX") %>% 
+  ggplot(aes(x = cell_line_type, y = mean)) +
+  geom_boxplot(aes(lower = conf.low, upper = conf.high))
 ```
 
 
