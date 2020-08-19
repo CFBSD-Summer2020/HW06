@@ -17,10 +17,29 @@ Steps:
   
 #### Code
 
+```{r loading packages}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+```
+
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
-
+setwd("./RNA_Seq_processed/H3K27M") #change the directory to where the H3K27M RNAseq files are
+H3K27M_file_names<-list.files() #create a list of all the RNAseq file names
+genes<-read_tsv(H3K27M_file_names[1])[,1] #create a dataframe with just the "Name" column
+H3K27M_TPM<-do.call(cbind,sapply(H3K27M_file_names,function(x){
+  read_tsv(x)[,4]})) #bind the TPM columns from each of the RNAseq files together
+H3K27M_TPM<-cbind(genes,H3K27M_TPM) #bind the dataframe with the "Name" column with the dataframe with TPM data of all the RNAseq files
+setwd("../WT")
+WT_file_names<-list.files()
+WT_TPM<-do.call(cbind,sapply(WT_file_names,function(x){
+  read_tsv(x)[,4]}))
+GBM.transcripts<-cbind(H3K27M_TPM,WT_TPM)
+names(GBM.transcripts)[1] <- 'gene_id'
 #you only need the 
 
 ```
@@ -61,12 +80,20 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2","MECP2") #added MECP2
 
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
+```
 
+```{r t-test}
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
+for(i in 1:length(genes_of_interest)){
+  x<-ens.mapped_GBM%>%
+    filter(gene_symbol==genes_of_interest[i])#filter TPM data for the particular gene #i
+  print(paste("t-teset between H3K mutated and WT samples for",genes_of_interest[i],"expression"))
+  print(t.test(x[1,2:24],x[25:46]))#columns 2:24 are H3K27M cell lines and columns 25:46 are WT cell lines
+}
 
 #print out the t-test results
 ```
@@ -77,12 +104,27 @@ Now create a graphing function to create boxplots to visualize the results. Plot
 
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
-
-
+tidy<-GBM.genes.of.interest%>%
+  rename_with(~paste0(.,"-H3K27_muated"),2:24)%>% #added suffix so that after gather(), each observation would have sample type information
+  rename_with(~paste0(.,"-WT"),25:46)%>%
+  gather(key="cell_line",value="TPM",2:46)%>%
+  separate(cell_line,c("cell_line","sample_type"),sep="-")%>%
+  select(-cell_line) #cell line information is not necessary for plots
 
 #create a graphing function
-
+graphing<-function(x){
+tidy%>%
+  filter(gene_symbol==genes_of_interest[x])%>%
+  ggplot(aes(x=sample_type,y=TPM,fill=sample_type))+
+  geom_boxplot()+
+  theme_bw()+
+  labs(title=paste(genes_of_interest[x],"Expression in GBM models by H3K27 mutated or WT Status"),x="H3K27",y="Expression_(TPM)")+
+  theme(legend.position = "none")
+}
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+for(i in 1:length(genes_of_interest)){
+  print(graphing(i))
+}
 ```
 
 
