@@ -23,6 +23,28 @@ From the RNA-Seq files, you only need the "Name" from one file and the "TPM" col
 
 #you only need the 
 
+library(tidyverse)
+library(dplyr)
+library(magrittr)
+
+# Listing the names of the files in the folder as character vector
+data_to_analyse <- list.files("RNA_Seq_processed", recursive = TRUE, full.names = TRUE)
+
+# Create a function to get the TPM column
+get_TPM <- function(x) {
+  group_name = basename(dirname(x)) #manipulating file paths
+  
+  read_tsv(x) %>% 
+    select(TPM) %>%
+    rename(!! group_name := TPM)
+}
+
+# Get transcript ids to form the gene_id column 
+gene_data <- read_tsv(data_to_analyse[1]) %>%
+  select(Name) %>%
+  rename(gene_id = Name)
+
+GBM.transcripts <- bind_cols(c(gene_data, lapply(data_to_analyse, get_TPM)))
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
@@ -61,28 +83,74 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+#genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
 
+# LIN28 is my gene of interest and I have added that at the end of this vector. 
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", "LIN28A")
+
+# In the GBM.genes.of.interest file that I obtained, I only got 27 observations instead of 28. Upon further inspection, I realized that the gene PTEN was repeated twice in the previous vector and that explained my result. I was initially worried!
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
 
+# I initially tried the following codes but I kept encountering an error with the filter function. 
+
+#for (gene in genes_of_interest) {
+#  WT <- GBM.genes.of.interest %>%
+#  filter(gene_symbol == gene, type == "WT")
+  
+#  mutated <- GBM.genes.of.interest %>%
+#  filter(gene_symbol == gene, type == "H3K27M_mutated")
+#}
+
+# I decided to go a different route and reorganize the table first this time. 
+
+reorg.GBM.genes.of.interest <- GBM.genes.of.interest %>% 
+  gather(key = "key", value = "value", -gene_symbol)  %>%
+  separate(key, into = c ("group", "order"), convert = TRUE)
+
+# Now that I have the table reorganized, I created a for loop to fo through each gene and run a ttest between mutated and WT.
+
+for (gene in genes_of_interest) {
+  stat_df <- reorg.GBM.genes.of.interest  %>%
+    filter(gene_symbol == gene)
+  
 #print out the t-test results
+  print(paste("........", gene, "........"))
+  print(t.test(value ~ group, stat_df))
+}
 ```
-
-
 
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
 ```{r create a graphing function}
 #to work in the tidyverse, it will be easier to make tidy the dataframe first
-
-
-
 #create a graphing function
+graphhh <- function(gene) {
+  stat_df <- GBM.genes.of.interest %>%
+    filter(gene_symbol == gene)
+  
+    boxplot <- ggplot(stat_df, aes(x = group, y = value, fill = group)) +
+      geom_boxplot() +
+      labs(x = "H3K27M", y = "Expression_(TPM)",
+        title = paste0(gene, " Expression in GBM models\nby H3K27M Mutated or WT Status")) +
+      theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+      theme_bw() 
+    
+    print(boxplot)
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+for (gene in genes_of_interest) {
+  graphhh(gene)
+}
+
+# I am almost there but I keep getting an error message that says:
+#Error in FUN(X[[i]], ...) : object 'group' not found
+
+# Upon further inspection, I realized something wrong in my global environment after running my first for loop in my third chunk of code (for gene in genes_of_interest). I was able to run the t-test for each gene using the for loop but somehow, I also got the first gene in my list - "IRX1" assigned to a variable "gene". I think because of that, for my second loop, I am unable to get my boxplots because for R. I tried changing gene to a or i or something else, but the same thing kept happening. I will try and figure this out again as we go along. 
+
 ```
 
 
