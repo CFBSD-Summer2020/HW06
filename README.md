@@ -7,3 +7,4 @@ You will like find this HW prompt a bit difficult, I think. However, it will hav
 
 That is all to say, you will read in 45 documents, map transcript IDs to symbols, do (at least) 27 statistical tests, and make 27 graphs. I was able to do it in about 50 lines of code (86 with some spacing and comments). If you want, try to meet or do it in less. Good luck. 
 
+Here is a link to the Markdown output of [HW06](HW06.md).
