@@ -18,16 +18,26 @@ Steps:
 #### Code
 
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
-```{r load in data}
+```{r load in data, message=FALSE, warning=FALSE}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
-#you only need the 
+library(magrittr)
+library(knitr)
+library(tidyverse)
+library(tidymodels)
+
+gene_ids <- read.csv("RNA_Seq_processed/WT/1840.sf", sep = "\t", header = TRUE)$Name
+GBM.transcripts <- list.files("RNA_Seq_processed/", full.names = TRUE, recursive = TRUE) %>% 
+  sapply(function(f) {read.csv(f, sep = '\t', header = TRUE)$TPM}) %>% as.data.frame()
+colnames(GBM.transcripts) <- list.files("RNA_Seq_processed/", recursive = TRUE) %>% 
+  strsplit('[\\.]') %>% sapply(function(x) {x[1]})    # Piping can avoid ugly long function nestings
+GBM.transcripts$gene_id <- gene_ids
 
 ```
 
 Now, install the packages commented below (if needed), and then use this code to map the transcript IDs to gene symbols. To use this code, you need a dataframe called GBM.transcripts that has the first column "gene_id" that contains the transcript ids (e.g. ENST00000456328.2) and the remaining columns contain the TPM data. So long as the first column contains the "gene_id" column as mentioned above, this *should* run. 
 
-```{r map gene.ids to gene.symbols using ensembldb}
+```{r map gene.ids to gene.symbols using ensembldb, message=FALSE, warning=FALSE}
 
 #install.packages("BiocManager")
 #BiocManager::install("ensembldb")
@@ -42,12 +52,13 @@ map <- ensembldb::select(EnsDb.Hsapiens.v75, keys = ens.GBM.transcripts$gene_id,
                          keytype = "TXID", columns = c("SYMBOL", "TXID"))
 
 ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")) %>% 
-  dplyr::select(-1) %>% 
+  dplyr::select(-gene_id) %>%     # Maybe gene_id is not the first column
   dplyr::select(gene_symbol = SYMBOL, everything())
 
 ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
+
 
 ```
 
@@ -63,12 +74,18 @@ detach(package:ensembldb, unload = T)
 #add in your own gene of interest!!! 
 genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
 
-
-GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
+# Do a bit more: transpose, and separate whether a cell line is WT or mutant
+GBM.genes.of.interest <- ens.mapped_GBM %>%
+  filter(gene_symbol %in% genes_of_interest) %>%
+  pivot_longer(-gene_symbol, names_to = "cell_line", values_to = "TPM") %>%     # tidy up!
+  separate(cell_line, c("mutant", "cell_line"), sep = '/', convert = TRUE)     # the name of the parent folder was reserved for `mutant` column
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
+GBM.genes.of.interest %>%
+  group_by(gene_symbol) %>%
+  do(tidy(t.test(filter(., mutant == "WT")$TPM, filter(., mutant == "H3K27M")$TPM))) %>%
+  kable() #print out the t-test results
 
-#print out the t-test results
 ```
 
 
@@ -76,15 +93,21 @@ GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_intere
 Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
 
 ```{r create a graphing function}
-#to work in the tidyverse, it will be easier to make tidy the dataframe first
-
-
-
 #create a graphing function
+my_boxplot <- function(gene, data) {
+  data %>% filter(gene_symbol == gene) %>%
+    ggplot(aes(mutant, TPM)) +
+      geom_boxplot(aes(fill = mutant)) +
+      labs(title = paste(gene, "Expression in GBM models by H3K27 Mutated or WT Status"), y = "Expression(TPM)")
+}
 
 #then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+lapply(unique(GBM.genes.of.interest$gene_symbol), my_boxplot, data = GBM.genes.of.interest)
 ```
 
+In the end of the day I was able to satisfy the prompts by adding exactly **20** lines of codes, not counting library inclusion, empty lines and comment lines.
+
+First, it turns out the `list.files()` function is quite useful inside `sapply` to both read all the data and combine them into a whole dataframe (or tibble). I tried to use piping there to avoid function nesting, which the brackets severely harm readability. Second, I tidy up the dataframe before doing t tests, so that I can make full use of the `broom` package (i.e. `tidy()`) and dplyr `group_by()` to perform all the tests all at once. Another trick I used is that when I read in the data, I kept both the name of the file and its parent directory's name (i.e. H3K27M and WT) as the column names, so that after tidying up the data, I was able to utilize tidyr `separate()` to split the wildtype and the mutant. One would argue that only saving 'H3K27M' or 'WT', without the detailed names of cell lines, is enough. Well, in this case it is, but I think it is a good habit to reserve it for further use.
 
 ```{r reproducibility}
 sessionInfo()
