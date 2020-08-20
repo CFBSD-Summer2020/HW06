@@ -1,0 +1,69 @@
+---
+title: "HW06"
+author: "Hannah Farrell"
+date: "8/18/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#subsetting points for acromion and spine analysis
+#load appropriate libraries
+```{r}
+library(geomorph)
+library(ggplot2)
+```
+#turn data into a 3D array (this part has my for loop)
+```{r}
+files3d <- list.files(path="RSCA Only/")
+arr3d <- array(dim=c(21, 9, length(files3d)))
+for(i in 1:length(files3d)){
+  arr3d[,,i] <- as.matrix(read.csv(file=paste0("RSCA Only/", files3d[i]), header = FALSE))
+}
+GPA_arr_acr <- array(dim = c(7, 3, length(files3d)))
+GPA_arr_acr[,,] <- as.numeric(arr3d[c(15:21), 4:6,])
+```
+#general procrustes
+```{r}
+GPA_ACR <- gpagen(GPA_arr_acr, PrinAxes = TRUE, ProcD = TRUE, Proj = TRUE)
+```
+#principle components analysis
+```{r}
+PCA_ACR <- gm.prcomp(GPA_ACR$coords)
+```
+#adding species and genera lables (and other info if you want from an excel sheet)
+```{r}
+Scaps <- read.csv("Labled Specimens RSCA.csv", header=TRUE)
+coords <- c("x", "y", "z")
+dimnames(GPA_ACR$coords) <- list(rownames(GPA_ACR$coords[,1,]), coords, rownames(files3d))
+```
+#add the excel sheet data to the PCA or GPA by creating a data frame
+```{r}
+ACR_df <- data.frame(PCA = PCA_ACR$x,
+                     Species = Scaps$Species,
+                     Genus = Scaps$Genus,
+                     Sex = Scaps$Sex,
+                     Side = Scaps$Side,
+                     Specimen = Scaps$Specimen.Number,
+                     Color = Scaps$GenusColor,
+                     Locomotion = Scaps$Locomotion)
+```
+#plot it
+```{r}
+acromion_plot <- ggplot(ACR_df, aes(x=PCA.Comp1, y=PCA.Comp2)) + 
+  geom_point(aes(shape = Locomotion, color = Genus), size = 5) + 
+  theme_classic(base_size = 22) +
+  scale_color_brewer(palette="Set2") +
+  scale_shape_manual(values = c(15, 16, 17, 18, 8)) +
+  theme(legend.position = "right", legend.title = element_blank()) + 
+  xlab("PC 1 (50.4%)") + 
+  ylab("PC 2 (15.3%)") + 
+  coord_fixed() + 
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.1)) 
+
+print(acromion_plot + labs(title = "Shape Differences Between Ape Scapulae", subtitle = "The shape of the scapular spine \nand acromion process"))
+```
+
+
