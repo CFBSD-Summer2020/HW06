@@ -1,5 +1,5 @@
 ---
-title: "HW06"
+title: "Raven Watson HW06"
 output: github_document
 ---
 
@@ -17,11 +17,32 @@ Steps:
   
 #### Code
 
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(data.table)
+
 From the RNA-Seq files, you only need the "Name" from one file and the "TPM" column from all the files. TPM stands for "transcripts per million" and is a common unit for normalized expression data. 
 ```{r load in data}
 #hint, using apply (specifically sapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
 
-#you only need the 
+H3K27M_files <- list.files("RNA_Seq_processed/H3K27M", full.names = TRUE)
+
+WT_files <- list.files("RNA_Seq_processed/WT", full.names = TRUE)
+
+H3K27M <- sapply(H3K27M_files, read.tsv) %>%
+  select(contains("TPM"), Name) %>%
+  rename(gene_id = Name)
+
+WT <- sapply(WT_files, read.tsv) %>%
+  select(contains("TPM"))
+
+Name <- read.tsv(H3K27M) %>%
+  select(gene_id)
+
+GBM.transcripts <- rbind(H3K27M, WT)
+
+
 
 ```
 
@@ -44,11 +65,13 @@ map <- ensembldb::select(EnsDb.Hsapiens.v75, keys = ens.GBM.transcripts$gene_id,
 ens.mapped_GBM <- left_join(ens.GBM.transcripts, map, by = c("gene_id" = "TXID")) %>% 
   dplyr::select(-1) %>% 
   dplyr::select(gene_symbol = SYMBOL, everything())
-
+inst
 ens.mapped_GBM <- ens.mapped_GBM[!duplicated(ens.mapped_GBM$gene_symbol),] #remove duplicated gene symbols
   #these are removed instead of averaged because they simply do not correlate particularly well. 
 ens.mapped_GBM <- ens.mapped_GBM[!is.na(ens.mapped_GBM$gene_symbol),] #remove NA values
 
+
+##I'm unable to install two of the three packages? I made sure I have the most up to date version of R studio but it's still telling me that my current version of R doesn't support the packages.
 ```
 
 
@@ -61,12 +84,14 @@ detach(package:EnsDb.Hsapiens.v75, unload = T)
 detach(package:ensembldb, unload = T)
 
 #add in your own gene of interest!!! 
-genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2", CEP72, HSF1)
 
 
 GBM.genes.of.interest <- filter(ens.mapped_GBM, gene_symbol %in% genes_of_interest)
 
 #Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(), but the for loop is probably the easiest
+
+t.test()
 
 #print out the t-test results
 ```
