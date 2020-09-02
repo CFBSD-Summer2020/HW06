@@ -1,0 +1,146 @@
+---
+title: "HW6 - Busayo"
+author: "Olubusayo Bolonduro"
+date: "9/1/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+For this assignment I decided to play with NFL data again.
+
+# Mitchell Trubisky
+
+In the 2017 NFL Draft, the Chicago Bears selected Mitchell Trubisky with the number 2 overall pick. Now, three years later, the man without a middle name is in a fight to be named starting quarterback. After an impressive sophomore season that helped the Bears claim a 12-4 record and their first playoff appearance since 2010, Trubisky regressed in year 3 and was unable to continue his trend of growth at the QB position. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+library(na.tools)
+library(ggimage)
+```
+
+```{r,message=FALSE, warning=FALSE}
+#Read in data
+yr2019pbp <- read_csv(url("https://github.com/ryurko/nflscrapR-data/raw/master/play_by_play_data/regular_season/reg_pbp_2019.csv"))
+yr2018pbp <- read_csv(url("https://github.com/ryurko/nflscrapR-data/raw/master/play_by_play_data/regular_season/reg_pbp_2018.csv"))
+
+Passing_2019 <- yr2019pbp %>%
+  select(play_type, posteam,yards_gained, air_yards, pass_location, desc)
+Trubisky_or_False_2019 <- Passing_2019 %>%
+  filter(play_type=="pass", posteam =="CHI", grepl("Trubisky",desc))%>%
+  #Added a column for whether the pass was completed or not
+  mutate(Completion = (!grepl("incomplete",desc)))%>%
+  drop_na()%>%
+  group_by(pass_location)
+```
+Trubisky is often subject to criticism regarding his accurracy on downfield passing. I'm going to create an arbitrary metric called the Money-Mitch-Throw (MMT) that occurs whenever Mitchell Trubisky throws a completed pass that travels at least 20 yards in the air. Let's see how many times a MMT occured during the 2019 season. 
+
+```{r, message = FALSE, warning=FALSE}
+#Here I create a for loop that counts the total number of MMTs
+MMT_2019 <- 0
+completed_air_yards_2019 <-Trubisky_or_False_2019%>%
+  select(air_yards,Completion)%>%
+  filter(Completion == TRUE)
+list_air_yards_2019 <- dplyr::pull(completed_air_yards_2019,air_yards)
+for (pass in list_air_yards_2019){
+  if (pass >=20) {
+    MMT_2019 <- MMT_2019 +1
+  }
+}
+#Function to give MMT output rounded to 1 significant figure
+MMT_Rate <-function(MMTpasses,TotalPasses) {
+  a <- MMTpasses
+  b <- TotalPasses
+  c <- a/b *100
+  return(sprintf(c, fmt = '%#.1f'))
+}
+```
+
+Looks like a MMT occurred 24 times out of 513 pass attempts (4.7 percent of pass attempts) last season. Let's see how that number compares to his 2018 season.
+
+```{r, message = FALSE}
+MMT_2018 <- 0
+Passing_2018 <- yr2018pbp %>%
+  select(play_type, posteam,yards_gained, air_yards, pass_location, desc)
+Trubisky_or_False_2018 <- Passing_2018 %>%
+  filter(play_type=="pass", posteam =="CHI", grepl("Trubisky",desc))%>%
+  mutate(Completion = (!grepl("incomplete",desc)))%>%
+  drop_na()%>%
+  group_by(pass_location)
+completed_air_yards_2018 <-Trubisky_or_False_2018%>%
+  select(air_yards,Completion)%>%
+  filter(Completion == TRUE)
+list_air_yards_2018 <- dplyr::pull(completed_air_yards_2018,air_yards)
+for (pass in list_air_yards_2018){
+  if (pass >= 20) {
+    MMT_2018 <- MMT_2018 +1
+  }
+}
+```
+
+In 2018, there a MMT occurred on 28 out of 432 pass attempts (6.5 percent of pass attempts). Downfield passing appears to be a skill that declined for Trubisky in 2019. Let's compare that to the league average.
+
+```{r, message = FALSE}
+MMT_All <- 0
+Passing_2019 <- yr2019pbp %>%
+  select(play_type,yards_gained, posteam, air_yards, pass_location, desc)
+All_2019 <- Passing_2019 %>%
+  #Remove Trubisky from all 2019 pass data
+  filter(play_type=="pass", !grepl("Trubisky", desc))%>%
+  mutate(Completion = (!grepl("incomplete",desc)))%>%
+  drop_na()%>%
+  group_by(pass_location)
+completed_air_yards_2019 <-All_2019%>%
+  select(air_yards,Completion)%>%
+  filter(Completion == TRUE)
+list_air_yards_2019 <- dplyr::pull(completed_air_yards_2019,air_yards)
+for (pass in list_air_yards_2019){
+  if (pass >= 20) {
+    MMT_All <- MMT_All +1
+  }
+}
+```
+The league average for a "Money-Mitch-Throw" last season was at 5.1 percent, slightly above the rate that Trubisky posted.  [Coincidentally, I found an article highlighting the top deep passers from the 2019 season](https://www.nfl.com/news/dak-prescott-russell-wilson-headline-nfl-s-top-10-deep-passers) that also decided to evaluate deep passing based off of passes traveling 20+ yards in the air! For fun, I also decided to see how Russell Wilson, who is considered the best deep-passer in the NFL, compares with his MMT rate for the 2019 season. 
+
+```{r, message = FALSE}
+MMT_Russ <- 0
+Passing_2019 <- yr2019pbp %>%
+  select(play_type, posteam,yards_gained, air_yards, pass_location, desc)
+Trust_Russ_2019 <- Passing_2019 %>%
+  filter(play_type=="pass", posteam =="SEA", grepl("Wilson",desc))%>%
+  ##Added a column for whether the pass was completed or not
+  mutate(Completion = (!grepl("incomplete",desc)))%>%
+  drop_na()%>%
+  group_by(pass_location)
+completed_air_yards_2019 <-Trust_Russ_2019%>%
+  select(air_yards,Completion)%>%
+  filter(Completion == TRUE)
+list_air_yards_2019 <- dplyr::pull(completed_air_yards_2019,air_yards)
+for (pass in list_air_yards_2019){
+  if (pass >= 20) {
+    MMT_Russ <- MMT_Russ +1
+  }
+}
+```
+Russell Wilson's 6.4 percent MMT rate puts into perspective how impressive Trubisky's 2018 season was, and how underwhelming his campaign the following year was. 
+
+
+Lastly, I wanted to see visualize Trubisky's 2019 passing based on location, distance, and accuracy. 
+```{r, message = FALSE}
+
+Money_Mitch_Plot <- ggplot(Trubisky_or_False_2019, aes(pass_location, air_yards, color = as.factor(Completion)))+
+  geom_boxplot()+
+  labs(x = "Pass Location", y ="Air Yards",title = "Mitchell Trubisky 2019 Season Passing Attempts")+
+  scale_color_discrete(name = "Attempt Result", labels = c("Incomplete","Complete"))+
+  scale_x_discrete(name = "Location", labels= c("Left","Middle","Right"))+
+  theme(plot.title = element_text(hjust = 0.5))
+
+Money_Mitch_Plot
+
+```
+
+The unsurprising trend here is that Trubisky's completion rate decreases as the distance of the throw increases. I wonder if there are any outlier quarterbacks that show an opposite trend at a certain location of the field. 
+
+Regardless, best of luck to the Bears this season. They won't be better than the Seahawks but football is always more fun when the local team is playing well. 
