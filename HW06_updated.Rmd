@@ -1,0 +1,72 @@
+---
+title: "HW06"
+output: github_document
+---
+
+In cancer, mutations arise that promote growth or survival of cells. In the childhood cancer Diffuse Intrinsic Pontine Glioma (DIPG), a common mutation is a mutation of the 27th lysine (K) to a methionine (M) of the histone subunit H3, or in short H3K27M. 
+
+H3K27M is the most frequent oncohistone in brain cancers, but the biology is still not well understood, including how this mutation affects the gene expression of other protein coding genes. 
+
+Your "lab" has sought to address this issue by performing RNA-Seq on 45 DIPG tumor samples, 22 WT (H3 Wildtype) samples and 23 H3K27M samples.
+
+Your analysis is to determine whether there are differences in the expression of several particular genes your "lab" is interested in. Besides doing a t-test to determine if these genes are differntially expressed between the H3K27M and WT samples, you are also asked to make boxplots for each gene to visualize this difference. The data used in this analysis was obtained [from this publication](https://pubmed.ncbi.nlm.nih.gov/31085178/) 
+
+Steps: 
+
+  1. Read in the 45 processed RNA-Seq data 
+    * These files can be found in "./RNA_Seq_processed"
+    * The WT samples are found in "./RNA_Seq_processed/WT/" and the H3K27M "./RNA_Seq_processed/H3K27M/"
+    * The folder "Old" in "./RNA_Seq_processed/WT/" can be ignored. 
+  2. For 23 genes of interest AND your favorite gene, perform a t-test to see if it is differentially expressed between the WT vs H3K27M samples
+  3. Create a graphing function and then create a boxplot that graphs expression between the two groups
+  
+  
+#### Code
+
+There are 45 separate files, each file contains the TPM gene expression values for each tumor sample that was sequenced. The first step will be to read in all the files and then combine them. The files are all the same, each row is a unique gene. The columns refer to the gene's gene_symbol, transcript_id, and a TPM (transcripts per million, a common normalized read count unit for RNA-Seq gene expression data). 
+
+Once the files are all read in, you need to just extract one gene_symbol column and all the TPM files. It would also be necessary to note which samples are H3 WT or K27M and ideally to note which sample the data came from (though technically this isn't strictly needed as we are asking for differences between the two groups and never get into differences between individual samples).
+
+
+
+```{r load in data}
+#hint, using apply (specifically lapply) you can read in the data into a list and then bind the columns together. Or you can use a for loop too. 
+
+```
+
+```{r combine the data together}
+#note the data in columns 1 and 2 of every csv file are exactly the same, same order and same length
+```
+
+
+```{r filter for the genes of interst}
+#add in your own gene of interest!!! 
+genes_of_interest <- c("IRX1", "OSR1", "DCHS2", "BRINP3", "TOB2P1", "FOXD1", "ZFPM2", "GLB1", "ALG5", "TRIM4", "ADARB2", "PCDHGA11", "IDH1", "EGFR", "MGMT", "TERT", "PTEN", "TP53", "RB1", "PTEN", "ATRX", "PDGFRA", "PIK3CA", "MICA", "CDKN2A", "EZH2", "BRD2")
+```
+
+
+Do the t-test and make a table of the t-test results!
+
+```{r t.test for difference between a bunch of genes}
+#Now perform a t-test between the H3K mutated and the wt samples. There are many ways to do this actually, you can use a for loop or you could do the tidy alternative with broom(). Feel free to investigate into either of them. 
+
+#be sure to print out the t-test results so you can see them in the knitted document
+```
+
+
+
+Now create a graphing function to create boxplots to visualize the results. Plot expression on the y-axis. The graph should look like [this example](IRX1_example.png)
+
+```{r create a graphing function}
+#to work in the tidyverse, it will be easier to make sure the data is "tidy" first
+
+#create a graphing function
+
+#then use a for loop combined with the graphing function to make a graph for all your genes of interest 
+```
+
+
+```{r reproducibility}
+sessionInfo()
+```
+
