@@ -3,7 +3,6 @@ Due August 17th
 
 As usual you can do your own thing for this HW, so long as it includes a for loop and a function. 
 
-You will like find this HW prompt a bit difficult, I think. However, it will have some very good lessons for everyone and is a relevant example for people. Look at the [HW06.Rmd file](HW06.Rmd) for the full prompt, but it involves looking whether the H3K27M mutation in glioblastoma cell lines affect the transcription (mRNA) levels of 27 genes of interest. It involves you figuring out how to read in many datasets, do many statistical tests, creating a graphing function and graphing the results. 
+You will likely find this HW prompt a bit difficult. That's okay. I hope it will have some good lessons as well as some relevant example for people. Look at the [HW06_updated.Rmd file](HW06_updated.Rmd) for the full prompt. But in short, the goal is to use programmatic tools and skills to allow you to efficiently do repetitive tasks. In this case, you will read in many (45) datasets, do 20+ many statistical tests, creating a graphing function and make 20+ graphs of the results. All of which can be done in about 50 lines of code, though it will still take time to figure out. 
 
-That is all to say, you will read in 45 documents, map transcript IDs to symbols, do (at least) 27 statistical tests, and make 27 graphs. I was able to do it in about 50 lines of code (86 with some spacing and comments). If you want, try to meet or do it in less. Good luck. 
-
+Edit: There was an error with the datasets and provided code. Thus, I updated the HW to be the HW06_updated file (linked above) and updated the RNA_Seq_processed files. There is a folder under RNA_Seq_processed with the "old" datasets. It is almost the same data, but it was better processed to make it so there doesn't need to be any provided code in the Rmd. 
